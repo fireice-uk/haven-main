@@ -1321,7 +1321,10 @@ std::pair<uint64_t, uint64_t> BlockchainLMDB::add_output(const crypto::hash& tx_
     : boost::get < txout_xasset > (tx_output.target).key;
   ok.data.unlock_time = unlock_time;
   ok.data.height = m_height;
-  ok.data.asset_type = output_asset_type;
+  if(output_asset_type.length() >= sizeof(ok.data.asset_type))
+    throw0(DB_ERROR(lmdb_error("Invalid asset_type " + output_asset_type, result).c_str()));
+  memset(ok.data.asset_type, 0, sizeof(ok.data.asset_type));
+  memcpy(ok.data.asset_type, output_asset_type.c_str(), output_asset_type.length());
   
   if (tx_output.amount == 0)
   {
@@ -6410,7 +6413,10 @@ void BlockchainLMDB::migrate_6_7()
             ok.data.pubkey = pubkey;
             ok.data.unlock_time = tx.unlock_time;
             ok.data.height = i;
-            ok.data.asset_type = asset_type;
+            if(asset_type.length() >= sizeof(ok.data.asset_type))
+              throw0(DB_ERROR(lmdb_error("Invalid asset_type " + asset_type, result).c_str()));
+            memset(ok.data.asset_type, 0, sizeof(ok.data.asset_type));
+            memcpy(ok.data.asset_type, asset_type.c_str(), asset_type.length());
             ok.data.commitment = commitment;
             ok_data.mv_size = sizeof(ok);
             ok_data.mv_data = &ok;
