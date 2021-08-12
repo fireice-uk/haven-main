@@ -155,7 +155,14 @@ namespace cryptonote
       return false;
     }
 
+    // Block the use of timestamps for unlock_time
     if(version >= HF_VERSION_XASSET_FEES_V2 && tx.unlock_time >= CRYPTONOTE_MAX_BLOCK_NUMBER) {
+      tvc.m_verifivation_failed = true;
+      return false;
+    }
+
+    // From HF17, only allow TX version 4+
+    if(version >= HF_VERSION_XASSET_FEES_V2 && tx.version < 4) {
       tvc.m_verifivation_failed = true;
       return false;
     }
@@ -287,7 +294,7 @@ namespace cryptonote
     std::string source;
     std::string dest;
     offshore::pricing_record pr;
-    if (!get_tx_asset_types(tx, source, dest, false)) {
+    if (!get_tx_asset_types(tx, tx.hash, source, dest, false)) {
       LOG_PRINT_L1("At least 1 input or 1 output of the tx was invalid." << id);
       tvc.m_verifivation_failed = true;
       if (source.empty()) {
@@ -309,7 +316,7 @@ namespace cryptonote
 
       // Block all conversions as of fork 17
       if (version >= HF_VERSION_XASSET_FEES_V2) {
-        LOG_ERROR("Conversion TXs are not permitted as of fork << ",HF_VERSION_XASSET_FEES_V2);
+        LOG_ERROR("Conversion TXs are not permitted as of fork" << HF_VERSION_XASSET_FEES_V2);
         tvc.m_verifivation_failed = true;
         return false;
       }
@@ -452,13 +459,25 @@ namespace cryptonote
         if (
           (offshore && (conversion_fee_check != tx.rct_signatures.txnOffshoreFee)) ||
           ((onshore || xusd_to_xasset) && (conversion_fee_check != tx.rct_signatures.txnOffshoreFee_usd)) ||
-	        (xasset_to_xusd && (conversion_fee_check != tx.rct_signatures.txnOffshoreFee_xasset))
+          (xasset_to_xusd && (conversion_fee_check != tx.rct_signatures.txnOffshoreFee_xasset))
         ){
-          LOG_PRINT_L1("conversion fee is incorrect - rejecting");
-          tvc.m_verifivation_failed = true;
-          tvc.m_fee_too_low = true;
-          return false;
+          // Check for 2 known overflow TXs
+          if ((epee::string_tools::pod_to_hex(tx.hash) != "5cdd9be420bd9034e2ff83a04cd22978c163a5263f8e7a0577f46ec762a21da6") &&
+              (epee::string_tools::pod_to_hex(tx.hash) != "b5cd616fc1b64a04750f890e466663ee3308c07846a174daf4d64c111f2de052")) {
+          
+            LOG_PRINT_L1("conversion fee is incorrect - rejecting");
+            tvc.m_verifivation_failed = true;
+            tvc.m_fee_too_low = true;
+            return false;
+          }
         }
+      }
+    } else {
+      // make sure there is no burnt/mint set for transfers, since these numbers will affect circulating supply.
+      if (tx.amount_burnt || tx.amount_minted) {
+        LOG_ERROR("error: Invalid Tx found. Amount burnt/mint > 0 for a transfer tx.");
+        tvc.m_verifivation_failed = true;
+        return false;
       }
     }
 
@@ -2007,7 +2026,7 @@ namespace cryptonote
       // get the asset types
       std::string source;
       std::string dest;
-      if (!get_tx_asset_types(tx, source, dest, false)) {
+      if (!get_tx_asset_types(tx, tx.hash, source, dest, false)) {
         LOG_PRINT_L2("At least 1 input or 1 output of the tx was invalid.");
         continue;
       }

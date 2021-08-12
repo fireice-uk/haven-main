@@ -2175,7 +2175,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   std::string source;
   std::string dest;
 
-  bool r = cryptonote::get_tx_asset_types(tx, source, dest, miner_tx);
+  bool r = cryptonote::get_tx_asset_types(tx, txid, source, dest, miner_tx);
   THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to get TX asset types");
   r = cryptonote::get_tx_type(source, dest, offshore, onshore, offshore_transfer, xusd_to_xasset, xasset_to_xusd, xasset_transfer);
   THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to get TX type");
@@ -7073,7 +7073,7 @@ void wallet2::commit_tx(pending_tx& ptx)
 
   std::string source;
   std::string dest;
-  bool r = cryptonote::get_tx_asset_types(ptx.tx, source, dest, false);
+  bool r = cryptonote::get_tx_asset_types(ptx.tx, ptx.tx.hash, source, dest, false);
   THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "failed to get TX asset types");
   
   transfer_container& specific_transfers =
@@ -8585,7 +8585,12 @@ bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_out
     return false;
   }
   // known invalid output IDs
-  if ((global_index == 6832483) || (global_index == 6832485) || (global_index == 6834093) || (global_index == 6834095))
+  std::vector<uint64_t> invalid_output_ids = {
+    6832483, 6832485, 6834093, 6834095, 6870840, 6870841, 6872742, 6872743, 6872660, 6872661,
+    6872554, 6872555, 6872556, 6872557, 6872558, 6872559, 6872560, 6872561, 6872562, 6872563,
+    6872564, 6872565, 6872566, 6872567, 6872568, 6872569, 6870373, 6870374, 6872656, 6872657, 6872325, 6872326
+  };
+  if (std::find(invalid_output_ids.begin(), invalid_output_ids.end(), global_index) != invalid_output_ids.end())
     return false;
 //  if (is_output_blackballed(output_public_key)) // don't add blackballed outputs
 //    return false;
